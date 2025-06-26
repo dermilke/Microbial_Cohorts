@@ -32,8 +32,15 @@ biome_type <- tibble(
                "Soil: Australia", "Soil: Cultivated (EMP)", "Soil: Field (EMP)",
                "Soil: Garden (EMP)", "Soil: Sandfilter (EMP)","Skin: Human foot (EMP)",
                "Skin: Human hand (EMP)", "Indoor surface (EMP)", "Freshwater: Germany (EMP)", "Freshwater: Timeseries (EMP)",
-               "Freshwater: USA (EMP)", "Marine: SPOT", "Marine: Lat. transect", "Marine: CalCOFI")
+               "Freshwater: USA (EMP)", "Marine: SPOT", "Marine: Lat. transect", "Marine: CalCOFI"),
+  Dataset = c("EMP", "EMP", "EMP", "EMP", "EMP", "EMP", "Lake_Mendota", "EMP", "EMP", "EMP", "EMP",
+              "Soil_Australia", "EMP", "EMP", "EMP", "EMP", "EMP", "EMP", "EMP", "EMP", "EMP", "EMP", "SPOT", "Comparison", "CalCOFI"),
+  Host = c("Deer", "Human", "Kangaroo", "Monkey", "Rabbit", "Human", "Lake", "Human", "Plant", "Plant", "Plant", 
+           "Soil", "Soil", "Soil", "Soil", "Soil", "Human", "Human", "Indoor", "Lake", "Lake", "Lake", "Ocean", "Ocean", "Ocean")
 )
+
+# Colorblind-palette
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 distsalgut <- c("#3a30a8", "#9E56CF", "#56c4cf", "#cf5687", "#87cf56")
 freshwater <- c("#009E73", "#F0E442", "#0072B2", "#D55E00")
@@ -46,3 +53,4 @@ soil <- c("#0050ce", "#ce7e00",	"#b7ce00",	"#ce1700", "#7e00ce")
 
 comb_palette <- c(distsalgut, freshwater, human_secretion, human_skin, indoor_surface, marine, plant_associated, soil)
 
+Palette3 <- c("#f44336", "#8fce00", "#6a329f", "#ce7e00", "#2986cc")
