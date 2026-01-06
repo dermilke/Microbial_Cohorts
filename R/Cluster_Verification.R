@@ -27,7 +27,8 @@
 # Date: 26.02.2025
 
 verify_network_cluster <- function(network, cluster_tab, res_param, bootstrap_num, remove_nodes = T,
-                                   random_expectation = F, niter_rewire = 2500, attack_bootstrap = 50) {
+                                   random_expectation = F, niter_rewire = 2500, attack_bootstrap = 50,
+                                   dataset_name) {
   
   ## 1) Significance of cluster modularity
   
@@ -38,15 +39,20 @@ verify_network_cluster <- function(network, cluster_tab, res_param, bootstrap_nu
   modularity_random <- replicate(bootstrap_num, {
     rewired_network <- rewire(network, with = keeping_degseq(niter = niter_rewire)) %>%
       induced_subgraph(., which(components(.)$membership == 1))
-    modularity(rewired_network, cluster_fluid_communities(rewired_network, no.of.communities = k)$membership)
+    #modularity(rewired_network, cluster_fluid_communities(rewired_network, no.of.communities = k)$membership)
+    modularity(rewired_network, cluster_fast_greedy(rewired_network)$membership)
   })
   
   # Compute observed modularity based on the clustering results from our clustering pipeline
-  observed_modularity <- modularity(network, left_join(tibble::enframe(V(network), name = "ASV"), cluster_tab, by = "ASV")$Cluster)
+  #observed_modularity <- modularity(network, left_join(tibble::enframe(V(network), name = "ASV"), cluster_tab, by = "ASV")$Cluster)
+  observed_modularity <- modularity(network, cluster_fast_greedy(network)$membership)
   
   # Output the significance of our observed modularity
-  print(paste0("P-value: ", mean(modularity_random >= observed_modularity), 
-               " (total of ", sum(modularity_random < observed_modularity), " out of ", bootstrap_num, " iterations below observation)"))
+  print(paste0(dataset_name, ": P-value: ", mean(modularity_random >= observed_modularity), 
+               " (total of ", sum(modularity_random < observed_modularity), " out of ", 
+               bootstrap_num, " iterations below observation) - ", 
+               "Observed: ", round(observed_modularity, digits = 4), " - Avg. random: ", round(mean(modularity_random), digits = 4), 
+               " - SD random: ", round(sd(modularity_random), digits = 4)))
   
   # Visualize the distribution of modularity values from random networks and highlight the observed modularity
   p1 <- tibble(Modularity = modularity_random, bootstrap_ID = seq(1, bootstrap_num)) %>%

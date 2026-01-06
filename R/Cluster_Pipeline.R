@@ -40,10 +40,10 @@ complete_cluster_pipeline <- function(network_edgelist_table,
     select(From, To, weight) %>%
     igraph::graph_from_data_frame(directed = F) %>%
     igraph::simplify(edge.attr.comb = "max") %>%
-    induced_subgraph(., which(components(.)$membership %in% 
-                                which(table(components(.)$membership) > vertex_num_drop)))
+    igraph::induced_subgraph(., which(igraph::components(.)$membership %in% 
+                                which(table(igraph::components(.)$membership) > vertex_num_drop)))
   
-  adjacency_mat <- as.matrix(as_adjacency_matrix(network, attr = "weight"))
+  adjacency_mat <- as.matrix(igraph::as_adjacency_matrix(network, attr = "weight"))
   
   if (find_parameters == TRUE) {
     
@@ -51,8 +51,8 @@ complete_cluster_pipeline <- function(network_edgelist_table,
     res_test_vec <- seq(0.1, 5, 0.1)
     
     cluster_list_res <- purrr::map(res_test_vec, function(res) {
-      cluster_leiden(network, objective_function = "modularity", resolution_parameter = res, 
-                     weights = E(network)$weight)
+      igraph::cluster_leiden(network, objective_function = "modularity", resolution_parameter = res, 
+                             weights = igraph::E(network)$weight)
     })
     
     ## Compute four different metrics to evaluate clustering results:
@@ -60,13 +60,13 @@ complete_cluster_pipeline <- function(network_edgelist_table,
     # Modularity penalized by cluster-size standard-deviation (otherwise it will always yield smallest resolution)
     sd_res <- purrr::map_dbl(seq_along(res_test_vec), function(ind) {
       clusters <- cluster_list_res[[ind]]
-      sd <- table(membership(clusters)) %>%
+      sd <- table(igraph::membership(clusters)) %>%
         sd()
       return(sd)
     })
     scores <- purrr::map2_dbl(seq_along(res_test_vec), sd_res/max(sd_res, na.rm = T), function(ind, sd_val) {
       clusters <- cluster_list_res[[ind]]
-      mod <- modularity(network, clusters$membership)
+      mod <- igraph::modularity(network, clusters$membership)
       mod - 1 * sd_val 
     })
     cluster_num_highmod <- cluster_list_res[[which.max(scores)]]$membership %>%
@@ -76,7 +76,7 @@ complete_cluster_pipeline <- function(network_edgelist_table,
     sil_scores <- purrr::map_dbl(seq_along(res_test_vec), function(ind) {
       clusters <- cluster_list_res[[ind]]$membership
       if (length(unique(clusters)) > 1) {
-        mean(silhouette(clusters, as.dist(1 - adjacency_mat))[, 3])
+        mean(cluster::silhouette(clusters, as.dist(1 - adjacency_mat))[, 3])
       } else {NA}
     })
     cluster_num_shilwid <- cluster_list_res[[which.max(sil_scores)]]$membership %>% 
@@ -150,16 +150,16 @@ complete_cluster_pipeline <- function(network_edgelist_table,
     
     # Recluster the network only within the interval of clustering-resolutions
     memberships <- purrr::map(resolution_vec, function(x) {
-      cluster_leiden(network, objective_function = "modularity", 
-                     resolution_parameter = x, weights = E(network)$weight)$membership
+      igraph::cluster_leiden(network, objective_function = "modularity", 
+                             resolution_parameter = x, weights = igraph::E(network)$weight)$membership
     }) %>%
       bind_cols() %>%
       magrittr::set_colnames(paste0("res_", resolution_vec))
     
     # Calculate the co-occurrence consensus-matrix from the clustering result
-    co_occurrence <- matrix(0, nrow = vcount(network), ncol = vcount(network)) %>%
-      magrittr::set_rownames(names(V(network))) %>%
-      magrittr::set_colnames(names(V(network)))
+    co_occurrence <- matrix(0, nrow = igraph::vcount(network), ncol = igraph::vcount(network)) %>%
+      magrittr::set_rownames(names(igraph::V(network))) %>%
+      magrittr::set_colnames(names(igraph::V(network)))
     
     membership_matrix <- as.matrix(memberships)
     
@@ -187,7 +187,7 @@ complete_cluster_pipeline <- function(network_edgelist_table,
       # Compare consensus clustering to original resolutions
       # (this is for the user to see if his clustering result is very sensitive to the clustering resolution)
       stability_scores <- sapply(memberships, function(clusters) {
-        adjustedRandIndex(consensus_clusters, clusters)
+        mclust::adjustedRandIndex(consensus_clusters, clusters)
       })
       
       # This plot shows both, the comparison between consensus solution based on
@@ -213,18 +213,18 @@ complete_cluster_pipeline <- function(network_edgelist_table,
       # Similar to original networks, we drop very small isolated networks that are likely spurious.
       # Cluster the network using the walktrap-algorithm. This yields the second
       # consensus-clustering approach and will be compared to the hierarchical clustering approach.
-      network_consensus <- graph_from_adjacency_matrix(co_occurrence, mode = "undirected", weighted = TRUE) %>%
+      network_consensus <- igraph::graph_from_adjacency_matrix(co_occurrence, mode = "undirected", weighted = TRUE) %>%
         igraph::simplify() %>%
-        set_vertex_attr(name = "Consensus_hierarchical", value = consensus_clusters) %>%
-        induced_subgraph(., which(components(.)$membership %in% 
-                                    which(table(components(.)$membership) > vertex_num_drop))) %>%
-        set_vertex_attr(name = "Consensus_network", value = membership(cluster_walktrap(.)))
+        igraph::set_vertex_attr(name = "Consensus_hierarchical", value = consensus_clusters) %>%
+        igraph::induced_subgraph(., which(igraph::components(.)$membership %in% 
+                                    which(table(igraph::components(.)$membership) > vertex_num_drop))) %>%
+        igraph::set_vertex_attr(name = "Consensus_network", value = igraph::membership(igraph::cluster_walktrap(.)))
       
-      network_clusters <- vertex_attr(network_consensus, "Consensus_network")
+      network_clusters <- igraph::vertex_attr(network_consensus, "Consensus_network")
       
       cluster_tab_consensus <- tibble(ASV = names(consensus_clusters), 
                                       Cluster = as.integer(consensus_clusters))
-      cluster_tab_network <- tibble(ASV = names(V(network_consensus)), 
+      cluster_tab_network <- tibble(ASV = names(igraph::V(network_consensus)), 
                                     Cluster = as.integer(network_clusters))
       
       # Additionally, the original co-occurrence network will be visualized and its nodes
@@ -233,15 +233,15 @@ complete_cluster_pipeline <- function(network_edgelist_table,
         select(From, To, weight) %>%
         igraph::graph_from_data_frame(directed = F) %>%
         igraph::simplify(edge.attr.comb = "max") %>%
-        set_vertex_attr(., name = "Consensus_hierarchical", value = left_join(tibble(ASV = names(V(.))), cluster_tab_consensus, by = "ASV")$Cluster) %>%
-        set_vertex_attr(., name = "Consensus_network", value = left_join(tibble(ASV = names(V(.))), cluster_tab_network, by = "ASV")$Cluster) %>%
-        induced_subgraph(., which(components(.)$membership %in% 
-                                    which(table(components(.)$membership) > vertex_num_drop))) %>%
+        igraph::set_vertex_attr(., name = "Consensus_hierarchical", value = left_join(tibble(ASV = names(igraph::V(.))), cluster_tab_consensus, by = "ASV")$Cluster) %>%
+        igraph::set_vertex_attr(., name = "Consensus_network", value = left_join(tibble(ASV = names(igraph::V(.))), cluster_tab_network, by = "ASV")$Cluster) %>%
+        igraph::induced_subgraph(., which(igraph::components(.)$membership %in% 
+                                    which(table(igraph::components(.)$membership) > vertex_num_drop))) %>%
         igraph::subgraph(vids = cluster_tab_network$ASV)
       
       # Use Fruchterman-Reingold layout
-      layout_raw <- layout_with_fr(network_raw, grid = "nogrid")
-      layout_consensus <- layout_with_fr(network_consensus, grid = "nogrid")
+      layout_raw <- igraph::layout_with_fr(network_raw, grid = "nogrid")
+      layout_consensus <- igraph::layout_with_fr(network_consensus, grid = "nogrid")
       
       # Here, we visualize all four networks:
       # top 2 networks = consensus networks 
@@ -251,17 +251,17 @@ complete_cluster_pipeline <- function(network_edgelist_table,
       # Colors in the observed networks are according to the clustering results from the two consensus-clustering approaches
       par(mfrow = c(2,2))
         igraph::plot.igraph(network_consensus, layout = layout_consensus, 
-                            vertex.color = RColorBrewer::brewer.pal(n = 12, name = 'Paired')[vertex_attr(network_consensus, "Consensus_hierarchical")],
+                            vertex.color = RColorBrewer::brewer.pal(n = 12, name = 'Paired')[igraph::vertex_attr(network_consensus, "Consensus_hierarchical")],
                             vertex.label = NA, vertex.size = 5, main = "Consensus-network - Hierarchical")
         igraph::plot.igraph(network_consensus, layout = layout_consensus, 
-                            vertex.color = RColorBrewer::brewer.pal(n = 12, name = 'Paired')[vertex_attr(network_consensus, "Consensus_network")],
+                            vertex.color = RColorBrewer::brewer.pal(n = 12, name = 'Paired')[igraph::vertex_attr(network_consensus, "Consensus_network")],
                             vertex.label = NA, vertex.size = 5, main = paste0("Consensus-network - Network clustering\nFound cluster: ", max(cluster_tab_network$Cluster)))
         
         igraph::plot.igraph(network_raw, layout = layout_raw, 
-                            vertex.color = RColorBrewer::brewer.pal(n = 12, name = 'Paired')[vertex_attr(network_raw, "Consensus_hierarchical")],
+                            vertex.color = RColorBrewer::brewer.pal(n = 12, name = 'Paired')[igraph::vertex_attr(network_raw, "Consensus_hierarchical")],
                             vertex.label = NA, vertex.size = 5, main = "Raw network with hierarchical clusters")
         igraph::plot.igraph(network_raw, layout = layout_raw, 
-                            vertex.color = RColorBrewer::brewer.pal(n = 12, name = 'Paired')[vertex_attr(network_raw, "Consensus_network")],
+                            vertex.color = RColorBrewer::brewer.pal(n = 12, name = 'Paired')[igraph::vertex_attr(network_raw, "Consensus_network")],
                             vertex.label = NA, vertex.size = 5, main = "Raw network with network clusters")
         
       # Output in the console the distribution of cluster-sizes for both consensus-approaches
@@ -307,16 +307,16 @@ complete_cluster_pipeline <- function(network_edgelist_table,
     
     # Run clustering within this interval
     memberships <- purrr::map(resolution_vec, function(x) {
-      cluster_leiden(network, objective_function = "modularity", 
-                     resolution_parameter = x, weights = E(network)$weight)$membership
+      igraph::cluster_leiden(network, objective_function = "modularity", 
+                             resolution_parameter = x, weights = igraph::E(network)$weight)$membership
     }) %>%
       bind_cols() %>%
       magrittr::set_colnames(paste0("res_", resolution_vec))
     
     # Build consensus co-occurrence-matrix
-    co_occurrence <- matrix(0, nrow = vcount(network), ncol = vcount(network)) %>%
-      magrittr::set_rownames(names(V(network))) %>%
-      magrittr::set_colnames(names(V(network)))
+    co_occurrence <- matrix(0, nrow = igraph::vcount(network), ncol = igraph::vcount(network)) %>%
+      magrittr::set_rownames(names(igraph::V(network))) %>%
+      magrittr::set_colnames(names(igraph::V(network)))
     
     # Vectorized co-occurrence calculation
     membership_matrix <- as.matrix(memberships)
@@ -337,17 +337,17 @@ complete_cluster_pipeline <- function(network_edgelist_table,
       cluster_tab <- tibble(ASV = names(consensus_clusters), 
                             Cluster = as.integer(consensus_clusters))
       
-    } else if (cluster_method == "Consensus_network") {
+    } else if (cluster_method == "Cluster_network") {
       
-      network_consensus <- graph_from_adjacency_matrix(co_occurrence, mode = "undirected", weighted = TRUE) %>%
+      network_consensus <- igraph::graph_from_adjacency_matrix(co_occurrence, mode = "undirected", weighted = TRUE) %>%
         igraph::simplify() %>%
-        induced_subgraph(., which(components(.)$membership %in% 
-                                    which(table(components(.)$membership) > vertex_num_drop))) %>%
-        set_vertex_attr(name = "Consensus_network", value = membership(cluster_walktrap(.)))
+        igraph::induced_subgraph(., which(igraph::components(.)$membership %in% 
+                                    which(table(igraph::components(.)$membership) > vertex_num_drop))) %>%
+        igraph::set_vertex_attr(name = "Consensus_network", value = igraph::membership(igraph::cluster_walktrap(.)))
       
-      network_clusters <- vertex_attr(network_consensus, "Consensus_network")
+      network_clusters <- igraph::vertex_attr(network_consensus, "Consensus_network")
       
-      cluster_tab <- tibble(ASV = names(V(network_consensus)), 
+      cluster_tab <- tibble(ASV = names(igraph::V(network_consensus)), 
                             Cluster = as.integer(network_clusters))
       
       optimal_k_sil <- max(cluster_tab$Cluster)
@@ -358,9 +358,9 @@ complete_cluster_pipeline <- function(network_edgelist_table,
       select(From, To, weight) %>%
       igraph::graph_from_data_frame(directed = F) %>%
       igraph::simplify(edge.attr.comb = "max") %>%
-      set_vertex_attr(., name = "Cluster", value = left_join(tibble(ASV = names(V(.))), cluster_tab, by = "ASV")$Cluster) %>%
-      induced_subgraph(., which(components(.)$membership %in% 
-                                  which(table(components(.)$membership) > vertex_num_drop))) %>%
+      igraph::set_vertex_attr(., name = "Cluster", value = left_join(tibble(ASV = names(igraph::V(.))), cluster_tab, by = "ASV")$Cluster) %>%
+      igraph::induced_subgraph(., which(igraph::components(.)$membership %in% 
+                                  which(table(igraph::components(.)$membership) > vertex_num_drop))) %>%
       igraph::subgraph(vids = cluster_tab$ASV)
     
   }
