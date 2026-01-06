@@ -54,20 +54,12 @@ load("output/clustering_datasets_04.RData")
 # Load abundance data. The Marine: Comparison dataset consists of two latitudinal transects,
 # one conducted in the Atlantic Ocean and one in the Pacific Ocean (see Milke et al. (2023)).
 # For our analyses here we combine both datasets into a single datalist.
-datalist_Atlantic <- import_data("../Archive/Comparison_Paper/data/Atlantic/", kingdom = "Prok") %>%
-  mutate_meta_datalist(Station = as.character(Station))
-datalist_Pacific <- import_data("../Archive/Comparison_Paper/data/Pacific/", kingdom = "Prok")
+datalist_Combined <- import_data("data/Count_Data_Filtered/Comparison/", kingdom = "Prok")
 
-datalist_Combined <- combine_data(datalist_Atlantic, datalist_Pacific)
-
-datalist_Australia <- import_data("../Australia_Soils/data/Count_Data_Filtered/", kingdom = "Prok")
-
-# Add WordlClim data to the Soil: Australia Meta-Data
-datalist_Australia$Meta_Data <- left_join(datalist_Australia$Meta_Data, 
-                                          read_tsv("../Australia_Soils/data/worldclim_data/bioclimatic.tsv"), by = "Sample_ID")
+datalist_Australia <- import_data("data/Count_Data_Filtered/Soil_Australia/", kingdom = "Prok")
 
 # Filter out those clusters with fewer than 10 members
-cluster_to_choose_Australia <- clustering_datasets_0.4[[14]]$Cluster_Tab %>%
+cluster_to_choose_Australia <- clustering_datasets_0.4[[20]]$Cluster_Tab %>%
   group_by(Cluster) %>%
   summarize(N = n()) %>%
   filter(N > 10) %>%
@@ -86,7 +78,7 @@ datalist_cluster_Combined <- datalist_Combined
 datalist_cluster_Australia$Count_Data <- datalist_cluster_Australia %>%
   mutate_count_datalist(function(x) x/sum(x)) %>%
   .$Count_Data %>%
-  left_join(., dplyr::rename(clustering_datasets_0.4[[14]]$Cluster_Tab, "OTU_ID" = "ASV"), by = "OTU_ID") %>%
+  left_join(., dplyr::rename(clustering_datasets_0.4[[20]]$Cluster_Tab, "OTU_ID" = "ASV"), by = "OTU_ID") %>%
   filter(!is.na(Cluster)) %>%
   group_by(Cluster) %>%
   summarize_if(is.numeric, sum) %>%
@@ -132,25 +124,51 @@ env_preference_cluster_Combined <- purrr::map(params_Combined, function(x) {
 # TSS (total sum scaling) and then standardize the values using z-scoring.
 p1 <- env_preference_cluster_Australia %>%
   select_if(is.numeric) %>%
-  mutate_all(function(x) x/sum(x)) %>%
-  with(., apply(., 1, function(x) (x-mean(x))/sd(x))) %>%
+  with(., apply(., 2, function(x) (x-mean(x))/sd(x))) %>%
+  t() %>%
   magrittr::set_rownames(c("Ammonium-nitrogen", "clay", "Fine sand", "Sand", "Silt",
                            "Exc. calcium", "Exc. potassium", "Nitrate-nitrogen", "Organic carbon", 
                            "PH", "Phosphorous", "Sulphur", "Annual avg. temperature",
                            "Temperature range", "Annual avg. precipitation", "Precipitation seasonality")) %>%
-  pheatmap::pheatmap(labels_col = as.character(1:nrow(datalist_cluster_Australia$Count_Data)))
+  pheatmap::pheatmap(labels_col = as.character(1:nrow(datalist_cluster_Australia$Count_Data)),
+                     angle_col = 0)
 
-ggsave(p1, filename = "fig/Cohort_Env_Preferences_Australia.png", width = 7, height = 5.5, dpi = 300)
+ggsave(p1, filename = "figs/Cohort_Env_Preferences_Australia.png", width = 7, height = 5.5, dpi = 300)
 
 p2 <- env_preference_cluster_Combined %>%
   select_if(is.numeric) %>%
-  mutate_all(function(x) x/sum(x)) %>%
-  with(., apply(., 1, function(x) (x-mean(x))/sd(x))) %>%
+  with(., apply(., 2, function(x) (x-mean(x))/sd(x))) %>%
+  t() %>%
   magrittr::set_rownames(c("Silicate", "Nitrate", "Depth", "Prokaryotic Generation Time", "Fluorescence",
                            "Potential Temperature", "Prokaryotic Cell Numbers", "Salinity", "Oxygen")) %>%
-  pheatmap::pheatmap(labels_col = as.character(1:nrow(datalist_cluster_Combined$Count_Data)))
+  pheatmap::pheatmap(labels_col = as.character(1:nrow(datalist_cluster_Combined$Count_Data)),
+                     angle_col = 0)
 
-ggsave(p2, filename = "fig/Cohort_Env_Preferences_Combined.png", width = 7, height = 5.5, dpi = 300)
+ggsave(p2, filename = "figs/Cohort_Env_Preferences_Combined.png", width = 7, height = 5.5, dpi = 300)
+
+#### Create Source-Data File ####
+
+env_preference_cluster_Australia %>% 
+  select_if(is.numeric) %>%
+  with(., apply(., 2, function(x) (x-mean(x))/sd(x))) %>%
+  t() %>%
+  as_tibble() %>%
+  mutate(Parameter = c("Ammonium-nitrogen", "Clay", "Fine sand", "Sand", "Silt",
+                                  "Exc. calcium", "Exc. potassium", "Nitrate-nitrogen", "Organic carbon", 
+                                  "PH", "Phosphorous", "Sulphur", "Annual avg. temperature",
+                                  "Temperature range", "Annual avg. precipitation", "Precipitation seasonality"), .before = 1) %>%
+  magrittr::set_colnames(c("Parameter", paste0("Cluster_", 1:8))) %>%
+  write_csv("output/Source_Data_Figure_3c.csv")
+
+env_preference_cluster_Combined %>% 
+  select_if(is.numeric) %>%
+  with(., apply(., 2, function(x) (x-mean(x))/sd(x))) %>%
+  t() %>%
+  as_tibble() %>%
+  mutate(Parameter = c("Silicate", "Nitrate", "Depth", "Prokaryotic Generation Time", "Fluorescence",
+                           "Potential Temperature", "Prokaryotic Cell Numbers", "Salinity", "Oxygen"), .before = 1) %>%
+  magrittr::set_colnames(c("Parameter", paste0("Cluster_", 1:10))) %>%
+  write_csv("output/Source_Data_Figure_3f.csv")
 
 # Subset each dataset to only include samples where the considered environmental parameter
 # are not NA

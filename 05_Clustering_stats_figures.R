@@ -24,129 +24,18 @@ source("https://raw.githubusercontent.com/dermilke/ExCom/master/R/Stats_Diversit
 # Here I store tables for plotting / improving dataset-names for visualization
 source("R/Names_Colors_Improvement.R")
 
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-
-# Number of ASVs considered in our analysis
-max_organisms <- 5000
+load("output/clustering_datasets_025.RData")
+load("output/clustering_datasets_04.RData")
 
 # Initialising parallelisation. Adjust number of workers according to your CPUs.
-plan(multisession, workers = 4)
+plan(multisession, workers = 2)
 
 # Iterate over all datasets, calculate the chosen metrics for both r-thresholds
 cluster_stats <- furrr::future_map2(clustering_datasets_0.25, clustering_datasets_0.4, function(cluster_object_0.25, cluster_object_0.4) {
   
-  print(cluster_object_0.25$Type)
+  cat(cluster_object_0.25$Type)
   
-  # Load the correct dataset
-  if (cluster_object_0.25$Type == "Distalgut_Deer") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Animal_distal_gut/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_station_datalist(host_common_name_provided == "Sambar deer")
-  } else if (cluster_object_0.25$Type == "CalCOFI") {
-    datalist_tmp <- import_data("../CalCOFI/data/Count_Data/Complete/", kingdom = "Prok", min_counts = 2000)
-  } else if (cluster_object_0.25$Type == "Comparison") {
-    datalist_tmp <- import_data("../Archive/Comparison_Paper/data/Combined_Reduced/", kingdom = "Prok", min_counts = 2000)
-  } else if (cluster_object_0.25$Type == "SPOT") {
-    datalist_tmp <- import_data("../SPOT/data/Count_Data/Complete/", kingdom = "Prok", min_counts = 2000)
-  } else if (cluster_object_0.25$Type == "Distalgut_Human") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Animal_distal_gut/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_station_datalist(host_common_name_provided == "human")
-  } else if (cluster_object_0.25$Type == "Distalgut_Kangaroo") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Animal_distal_gut/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_station_datalist(host_common_name_provided == "Kangaroo")
-  } else if (cluster_object_0.25$Type == "Distalgut_Monkey") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Animal_distal_gut/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_station_datalist(host_common_name_provided == "Spider monkey")
-  } else if (cluster_object_0.25$Type == "Distalgut_Rabbit") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Animal_distal_gut/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_station_datalist(host_common_name_provided == "Rabbit")
-  } else if (cluster_object_0.25$Type == "Human_Saliva") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Animal_secretion/", kingdom = "Prok", min_counts = 2000) %>%
-      mutate_meta_datalist(Type = ifelse(grepl(pattern = "saliva", x = Description), "Saliva",
-                                         ifelse(grepl(pattern = "Nose", x = Description), "Nose",
-                                                ifelse(grepl(pattern = "oral", x = Description) | grepl(pattern = "mouth", x = Description), "Mouth", "Various")))) %>%
-      filter_station_datalist(Type == "Saliva" & host_common_name_provided == "human")
-  } else if (cluster_object_0.25$Type == "Lake_Mendota") {
-    datalist_tmp <- import_data("../Lake_Mendota/data/Count_Data/Complete/", min_counts = 2000, kingdom = "Prok")
-  } else if (cluster_object_0.25$Type == "Nose_Secretion") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Animal_secretion/", kingdom = "Prok", min_counts = 2000) %>%
-      mutate_meta_datalist(Type = ifelse(grepl(pattern = "saliva", x = Description), "Saliva",
-                                         ifelse(grepl(pattern = "Nose", x = Description), "Nose",
-                                                ifelse(grepl(pattern = "oral", x = Description) | grepl(pattern = "mouth", x = Description), "Mouth", "Various")))) %>%
-      filter_station_datalist(Type == "Nose" & host_common_name_provided == "human")
-  } else if (cluster_object_0.25$Type == "Plant_Rhizosphere") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Plant_rhizosphere/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_taxa_datalist(Class != "Chloroplast" & Family != "mitochondria") %>%
-      filter_station_datalist(Description == "Rhizosphere")
-  } else if (cluster_object_0.25$Type == "Plant_Roots") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Plant_rhizosphere/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_taxa_datalist(Class != "Chloroplast" & Family != "mitochondria") %>%
-      filter_station_datalist(Description == "Roots")
-  } else if (cluster_object_0.25$Type == "Plant_Surface") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Plant_surface/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_taxa_datalist(Class != "Chloroplast" & Family != "mitochondria")
-  } else if (cluster_object_0.25$Type == "Soil_Australia") {
-    datalist_tmp <- list(Count_Data = read_tsv("../Australia_Soils/data/Count_Data_Filtered/Processed/Prok/Full_Prok_Count.tsv"),
-                         Meta_Data = read_tsv("../Australia_Soils/data/Count_Data_Filtered/Meta_Data/Prok/Meta_Data.tsv") %>%
-                           left_join(., read_tsv("../Australia_Soils/data/worldclim_data/bioclimatic.tsv"), by = "Sample_ID"))
-  } else if (cluster_object_0.25$Type == "Soil_Cultivated") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Soil_non_saline/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_taxa_datalist(Class != "Chloroplast" & Family != "mitochondria") %>%
-      filter_station_datalist(study_id == 1721 & collection_timestamp == "16.11.11")
-  } else if (cluster_object_0.25$Type == "Soil_Field") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Soil_non_saline/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_taxa_datalist(Class != "Chloroplast" & Family != "mitochondria") %>%
-      filter_station_datalist(study_id == 990)
-  } else if (cluster_object_0.25$Type == "Soil_Garden") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Soil_non_saline/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_taxa_datalist(Class != "Chloroplast" & Family != "mitochondria") %>%
-      filter_station_datalist(study_id == 1674)
-  } else if (cluster_object_0.25$Type == "Soil_Sandfilter") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Soil_non_saline/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_taxa_datalist(Class != "Chloroplast" & Family != "mitochondria") %>%
-      filter_station_datalist(Description == "samples of sand from slow_sand filter water purification system" & depth_m <= 0.4)
-  } else if (cluster_object_0.25$Type == "Surface_Foot") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Animal_surface/", kingdom = "Prok", min_counts = 2000) %>%
-      mutate_meta_datalist(Bodypart = str_replace_all(Description, pattern = "^.*\\.", replacement = "") %>%
-                             str_replace_all(pattern = "sample_[0-9]* ", replacement = "")) %>%
-      filter_station_datalist(host_common_name_provided == "human" & Bodypart == "Foot")
-  } else if (cluster_object_0.25$Type == "Surface_Hand") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Animal_surface/", kingdom = "Prok", min_counts = 2000) %>%
-      mutate_meta_datalist(Bodypart = str_replace_all(Description, pattern = "^.*\\.", replacement = "") %>%
-                             str_replace_all(pattern = "sample_[0-9]* ", replacement = "")) %>%
-      filter_station_datalist(host_common_name_provided == "human" & Bodypart == "Hand")
-  } else if (cluster_object_0.25$Type == "Surface_Nonsaline") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Surface_non_saline/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_taxa_datalist(Class != "Chloroplast" & Family != "mitochondria") %>%
-      filter_station_datalist(study_id == 2192)
-  } else if (cluster_object_0.25$Type == "Water_Nonsaline_Germany") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Water_non_saline/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_taxa_datalist(Class != "Chloroplast" & Family != "mitochondria") %>%
-      filter_station_datalist(study_id == 945)
-  } else if (cluster_object_0.25$Type == "Water_Nonsaline_Timeseries") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Water_non_saline/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_taxa_datalist(Class != "Chloroplast" & Family != "mitochondria") %>%
-      filter_station_datalist(study_id == 1288)
-  } else if (cluster_object_0.25$Type == "Water_Nonsaline_USA") {
-    datalist_tmp <- import_data("../EMP/data/Count_Data/Water_non_saline/", kingdom = "Prok", min_counts = 2000) %>%
-      filter_taxa_datalist(Class != "Chloroplast" & Family != "mitochondria") %>%
-      filter_station_datalist(study_id == 1883 & env_feature == "freshwater habitat" & country == "GAZ:United States of America")
-  } else if (cluster_object_0.25$Type == "Comparison") {
-    datalist_tmp <- import_data("../Archive/Comparison_Paper/data/Combined_Reduced/", kingdom = "Prok", min_counts = 2000)
-  }
-  
-  # Identify the top abundant ASVs and select "max_organism" ASVs
-  chosen_asvs <- datalist_tmp %>%
-    mutate_count_datalist(function(x) x/sum(x)) %>%
-    .$Count_Data %>%
-    mutate(total = rowMeans(select_if(., is.numeric))) %>%
-    select(OTU_ID, total) %>%
-    arrange(desc(total)) %>%
-    dplyr::slice(1:max_organisms) %>%
-    .$OTU_ID
-  
-  # Subset count-data using selected ASVs
-  datalist_tmp <- datalist_tmp %>%
-    filter_taxa_datalist(OTU_ID %in% chosen_asvs) %>%
+  datalist_tmp <- import_data(paste0("data/Count_Data_Filtered/", cluster_object_0.25$Type, "/"), kingdom = "Prok", min_counts = 2000) %>%
     mutate_count_datalist(function(x) x/sum(x))
   
   # Combine cluster-information of both r-thresholds
@@ -242,7 +131,7 @@ biome_type_with_num %>%
   mutate(Biome = ordered(Biome, levels = Biome_Order)) %>%
   ggplot(aes(x = Biome, y = Richness, col = as.factor(r_threshold), fill = as.factor(r_threshold))) +
   geom_boxplot(col = "black", width = .2, position = position_dodge(width = .3), linewidth = 0.25, outlier.size = .25) +
-  geom_jitter(alpha = .05, position = position_jitterdodge(0.2, dodge.width = 1.2, jitter.width = .3,
+  geom_jitter(alpha = .05, position = position_jitterdodge(dodge.width = 1.2, jitter.width = .3,
                                                            jitter.height = .4)) +
   coord_flip() +
   labs(x = "", y = "Number of cohorts per sample\n ", col = "r-threshold", fill = "r-threshold") +
@@ -301,3 +190,22 @@ cluster_stats %>%
     theme(axis.text = element_text(colour = "black"))
 
 ggsave("figs/ASVs_per_Cluster.png", width = 5, height = 3.5, dpi = 300)
+
+#### Create Source-Data File ####
+
+biome_type_with_num %>%
+  select(Biome, ESN, Mapped_Counts, Richness, r_threshold) %>%
+  write_csv("output/Source_Data_Figure_1a_1.csv")
+
+cluster_stats %>%
+  purrr::map(function(x) {
+    mutate(x$ASV_per_cohort, Type = unique(x$cluster_stats$Type)) %>%
+      return()
+  }) %>%
+  bind_rows() %>%
+  left_join(., select(biome_type_with_num, Type, Biome) %>% distinct(), by = "Type") %>%
+  filter(Type != "HMP") %>%
+  filter(!(Type %in% c("Sediment_Saline", "Sediment_Nonsaline"))) %>%
+  select(Biome, N, r_threshold) %>%
+  dplyr::rename("ASV_per_Cohort" = "N") %>%
+  write_csv("output/Source_Data_Figure_1a_2.csv")
