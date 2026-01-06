@@ -17,9 +17,9 @@ the well-known dplyr-package (see Github repository [ExCom](https://github.com/d
 Prerequisites
 
 Before running the scripts, ensure you have the following installed:
-	•	R (≥ 4.0)
-	•	Required R packages (tidyverse, vegan, igraph, ggplot2, SpiecEasi, Cluster, mclust)
-  • FastSpar installation via Conda-Environment
+•	R (≥ 4.0)
+•	Required R packages (tidyverse, vegan, igraph, ggplot2, SpiecEasi, Cluster, mclust)
+• 	FastSpar installation via Conda-Environment
 
 Additional specialized packages may be needed depending on script-specific dependencies.
 
