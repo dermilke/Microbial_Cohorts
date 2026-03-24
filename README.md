@@ -30,4 +30,5 @@ Additional specialized packages may be needed depending on script-specific depen
 
 If you use this repository for your research, please cite:
 
-Milke et al. (2025) (in review).  ￼
+Milke et al. (2026):
+Milke F, Garcia SL, Simon M, Pacheco-Valenciana A, Lennartz ST, 2026. Microbial cohorts: bringing ecological meaning to the modularity concept of co-occurrence networks. ISME Communications, Volume 6, Issue 1, January 2026, ycag037. https://doi.org/10.1093/ismeco/ycag037
